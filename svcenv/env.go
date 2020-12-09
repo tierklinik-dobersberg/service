@@ -1,4 +1,4 @@
-package serviceenv
+package svcenv
 
 import (
 	"fmt"
