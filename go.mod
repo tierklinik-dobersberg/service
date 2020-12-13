@@ -10,3 +10,5 @@ require (
 	github.com/tierklinik-dobersberg/logger v0.0.0-20201125171257-d519c7625406
 	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a
 )
+
+replace github.com/ppacher/system-conf => ../system-conf
