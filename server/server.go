@@ -5,30 +5,43 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/ppacher/system-conf/conf"
 	"github.com/tierklinik-dobersberg/logger"
 	"github.com/tierklinik-dobersberg/service/accesslog"
 )
+
+// PreHandlerFunc is called for each http request before the
+// actual handler chain executes. It's mainly meant to support
+// updating the request context.
+type PreHandlerFunc func(*http.Request) *http.Request
 
 // Server wraps a gin.Engine and adds some additional, service-context
 // specific methods.
 type Server struct {
 	*gin.Engine
-	listener []Listener
+
+	preHandler []PreHandlerFunc
+	logger     logger.Logger
+	listenCfgs []Listener
+	servers    []*http.Server
 }
 
 // New creates a new server instance.
-func New(accessLogPath string, listeners []conf.Section) (*Server, error) {
+func New(accessLogPath string, opts ...Option) (*Server, error) {
 	srv := new(Server)
-
 	srv.Engine = gin.Default() // TODO
 
-	for _, cfg := range listeners {
-		l, err := BuildListener(cfg)
-		if err != nil {
-			return nil, fmt.Errorf("failed to build listener: %w", err)
+	for _, opt := range opts {
+		if err := opt(srv); err != nil {
+			return nil, fmt.Errorf("failed to apply options: %w", err)
 		}
-		srv.listener = append(srv.listener, l)
+	}
+
+	if srv.logger == nil {
+		srv.logger = logger.DefaultLogger()
+	}
+
+	if len(srv.listenCfgs) == 0 {
+		return nil, fmt.Errorf("no listeners configured")
 	}
 
 	// We always use an access logger, either printing to accessLogPath
@@ -57,6 +70,18 @@ func accessLogger(path string) gin.HandlerFunc {
 // ServeHTTP implements http.Handler and calls through to gin.Engine
 // with the addition of setting up service specific things ...
 func (srv *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	// TODO(ppacher): add request specific logger here
+	// create a new request context that has a logger attached.
+	ctx := req.Context()
+	ctx = logger.With(ctx, srv.logger)
+
+	// create a new request with the new context
+	// and hand over to gin.Engine
+	req = req.WithContext(ctx)
+
+	// run all pre-handlers
+	for _, fn := range srv.preHandler {
+		req = fn(req)
+	}
+
 	srv.Engine.ServeHTTP(w, req)
 }

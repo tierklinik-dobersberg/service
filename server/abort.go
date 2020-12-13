@@ -12,33 +12,6 @@ import (
 	"github.com/tierklinik-dobersberg/logger"
 )
 
-func isErrType(err error, ref error) bool {
-	refType := reflect.Indirect(reflect.ValueOf(ref)).Type()
-	unwrapCause := func(s error) error {
-		e := errors.Unwrap(s)
-		if e == nil {
-			if causer, ok := s.(interface{ Cause() error }); ok {
-				e = causer.Cause()
-			}
-		}
-
-		return e
-	}
-
-	e := err
-	for {
-		t := reflect.Indirect(reflect.ValueOf(e)).Type()
-		if refType == t {
-			return true
-		}
-
-		e = unwrapCause(e)
-		if e == nil {
-			return false
-		}
-	}
-}
-
 // AbortRequest aborts the current request with status and err.
 // If status is 0 it tries to automatically determine the appropriate
 // status code for err.
@@ -84,4 +57,31 @@ func AbortRequest(ctx *gin.Context, status int, err error) {
 	}
 
 	logger.From(ctx.Request.Context()).WithFields(fields).Errorf("failed to handle request")
+}
+
+func isErrType(err error, ref error) bool {
+	refType := reflect.Indirect(reflect.ValueOf(ref)).Type()
+	unwrapCause := func(s error) error {
+		e := errors.Unwrap(s)
+		if e == nil {
+			if causer, ok := s.(interface{ Cause() error }); ok {
+				e = causer.Cause()
+			}
+		}
+
+		return e
+	}
+
+	e := err
+	for {
+		t := reflect.Indirect(reflect.ValueOf(e)).Type()
+		if refType == t {
+			return true
+		}
+
+		e = unwrapCause(e)
+		if e == nil {
+			return false
+		}
+	}
 }

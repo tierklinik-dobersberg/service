@@ -1,8 +1,6 @@
 package server
 
 import (
-	"fmt"
-
 	"github.com/ppacher/system-conf/conf"
 )
 
@@ -32,29 +30,4 @@ var ListenerSpec = []conf.OptionSpec{
 		Description: "Path to the TLS private key file (PEM format)",
 		Type:        conf.StringType,
 	},
-}
-
-// BuildListener builds a listener from a listener section.
-func BuildListener(sec conf.Section) (Listener, error) {
-	var (
-		l   Listener
-		err error
-	)
-
-	l.Address, err = sec.GetString("Address")
-	if err != nil {
-		return l, fmt.Errorf("Listener.Address: %w", err)
-	}
-
-	l.TLSCertFile, err = getOptionalString(sec, "CertificateFile")
-	if err != nil {
-		return l, fmt.Errorf("Listener.CertificateFile: %w", err)
-	}
-
-	l.TLSKeyFile, err = getOptionalString(sec, "PrivateKeyFile")
-	if err != nil {
-		return l, fmt.Errorf("Listener.PrivateKeyFile: %w", err)
-	}
-
-	return l, nil
 }
