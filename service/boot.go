@@ -5,59 +5,11 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/gin-gonic/gin"
 	"github.com/ppacher/system-conf/conf"
 	"github.com/tierklinik-dobersberg/logger"
 	"github.com/tierklinik-dobersberg/service/server"
 	"github.com/tierklinik-dobersberg/service/svcenv"
 )
-
-// Config describes the overall configuration and setup required
-// to boot the system service.
-type Config struct {
-	// AccessLogPath is the path to the access log of the
-	// built-in HTTP server. If defined as "AccessLogPath"
-	// by ConfigFileSpec, the access log may be overwritten
-	// by the configuration file automatically.
-	AccessLogPath string
-
-	// ConfigFileName is the name of the configuration file.
-	// The extension of the configuration file defaults
-	// to .conf.
-	ConfigFileName string
-
-	// ConfigFileSpec describes the allowed sections and
-	// values of the configuration file. Note that if
-	// DisableServer is not set the file spec is extended
-	// to include Listener sections for the built-in HTTP(s)
-	// server.
-	// If no [Listener] section is defined and the built-in
-	// HTTP server is enabled a default listener for
-	// 127.0.0.1:3000 is created.
-	ConfigFileSpec conf.FileSpec
-
-	// ConfigTarget may holds the struct that should be
-	// used to unmarshal the configuration file into.
-	ConfigTarget interface{}
-
-	// DisableServer disables the built-in HTTP(s) server.
-	// If set, calls to Server() will return nil!
-	DisableServer bool
-
-	// ServerOptions may hold additional options for the
-	// built-in HTTP server. ServerOptions is ignored when
-	// DisableServer is set.
-	ServerOptions []server.Option
-
-	// RouteSetup configures may be used to configure
-	// the available HTTP routes. It's also possible
-	// to configure routes after Boot() by adding them
-	// to the Instance.Server() directly.
-	RouteSetupFunc func(grp gin.IRouter) error
-
-	// LogAdapter configures the standard log adapter to use.
-	LogAdapter logger.Adapter
-}
 
 // Boot boots the service and returns the service
 // instance.
@@ -88,70 +40,82 @@ func Boot(cfg Config) (*Instance, error) {
 		}
 	}
 
-	// setup the built-in HTTP server
-	var srv *server.Server
-	if !cfg.DisableServer {
-		// parse the [Listener] sections from the configuration
-		// file.
-		var file struct {
-			Listeners []server.Listener `section:"Listener"`
-		}
-		spec := getFileSpec(&cfg)
-		if err := spec.Decode(cfgFile, &file); err != nil {
-			return nil, fmt.Errorf("failed to parse listeners: %w", err)
-		}
-
-		// If there's no listener section make sure to add the dev-version:
-		if len(file.Listeners) == 0 {
-			logger.DefaultLogger().Info("no listeners configured, using http://127.0.0.1:3000")
-			file.Listeners = []server.Listener{
-				{
-					Address: "127.0.0.1:3000",
-				},
-			}
-		}
-
-		// If there's an AccessLogPath option in the file spec
-		// allow it to overwrite the default access-log:
-		if glob, ok := cfg.ConfigFileSpec.FindSection("Global"); ok && glob.HasOption("AccessLogPath") {
-			if globSection := cfgFile.Get("Global"); globSection != nil {
-				opt, _ := globSection.GetString("AccessLogPath")
-				if opt != "" {
-					cfg.AccessLogPath = opt
-				}
-			}
-		}
-
-		// prepare the actual HTTP server ...
-		srv, err = server.New(cfg.AccessLogPath,
-			append(
-				[]server.Option{
-					server.WithListener(file.Listeners...),
-					server.WithLogger(logger.DefaultLogger()),
-				},
-				cfg.ServerOptions...,
-			)...,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to prepare built-in HTTP server: %w", err)
-		}
-
-		// any create any routes by using the RouteSetupFunc if it
-		// was provided by the user.
-		if cfg.RouteSetupFunc != nil {
-			if err := cfg.RouteSetupFunc(srv); err != nil {
-				return nil, fmt.Errorf("route setup failed: %w", err)
-			}
-		}
-	}
-
 	inst := &Instance{
-		Config:  cfg,
-		cfgFile: cfgFile,
-		srv:     srv,
+		Config:     cfg,
+		ServiceEnv: env,
+		cfgFile:    cfgFile,
 	}
+
+	// prepare the built-in HTTP server
+	srv, err := prepareHTTPServer(&cfg, inst)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare HTTP server: %w", err)
+	}
+	inst.srv = srv
 
 	return inst, nil
+}
+
+func prepareHTTPServer(cfg *Config, inst *Instance) (*server.Server, error) {
+	if cfg.DisableServer {
+		return nil, nil
+	}
+
+	// parse the [Listener] sections from the configuration
+	// file.
+	var file struct {
+		Listeners []server.Listener `section:"Listener"`
+	}
+	spec := getFileSpec(cfg)
+	if err := spec.Decode(inst.cfgFile, &file); err != nil {
+		return nil, fmt.Errorf("failed to parse listeners: %w", err)
+	}
+
+	// If there's no listener section make sure to add the dev-version:
+	if len(file.Listeners) == 0 {
+		logger.DefaultLogger().Info("no listeners configured, using http://127.0.0.1:3000")
+		file.Listeners = []server.Listener{
+			{
+				Address: "127.0.0.1:3000",
+			},
+		}
+	}
+
+	// If there's an AccessLogPath option in the file spec
+	// allow it to overwrite the default access-log:
+	if glob, ok := cfg.ConfigFileSpec.FindSection("Global"); ok && glob.HasOption("AccessLogPath") {
+		if globSection := inst.cfgFile.Get("Global"); globSection != nil {
+			opt, _ := globSection.GetString("AccessLogPath")
+			if opt != "" {
+				cfg.AccessLogPath = opt
+			}
+		}
+	}
+
+	// prepare the actual HTTP server ...
+	srv, err := server.New(cfg.AccessLogPath,
+		append(
+			[]server.Option{
+				server.WithListener(file.Listeners...),
+				server.WithLogger(logger.DefaultLogger()),
+				inst.serverOption(),
+			},
+			cfg.ServerOptions...,
+		)...,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare built-in HTTP server: %w", err)
+	}
+
+	// any create any routes by using the RouteSetupFunc if it
+	// was provided by the user.
+	if cfg.RouteSetupFunc != nil {
+		if err := cfg.RouteSetupFunc(srv); err != nil {
+			return nil, fmt.Errorf("route setup failed: %w", err)
+		}
+	}
+
+	return srv, nil
 }
 
 func loadConfigFile(env svcenv.ServiceEnv, cfg *Config) (*conf.File, error) {

@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"net/http"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/tierklinik-dobersberg/logger"
@@ -19,7 +20,9 @@ type PreHandlerFunc func(*http.Request) *http.Request
 type Server struct {
 	*gin.Engine
 
+	rw         sync.RWMutex
 	preHandler []PreHandlerFunc
+
 	logger     logger.Logger
 	listenCfgs []Listener
 	servers    []*http.Server
@@ -67,6 +70,24 @@ func accessLogger(path string) gin.HandlerFunc {
 	return accesslog.New(accessLogger)
 }
 
+// WithPreHandler adds additional pre-request handler function
+// fn.
+func (srv *Server) WithPreHandler(fn PreHandlerFunc) {
+	srv.rw.Lock()
+	defer srv.rw.Unlock()
+
+	srv.preHandler = append(srv.preHandler, fn)
+}
+
+func (srv *Server) runPreHandler(req *http.Request) *http.Request {
+	srv.rw.RLock()
+	defer srv.rw.RUnlock()
+	for _, fn := range srv.preHandler {
+		req = fn(req)
+	}
+	return req
+}
+
 // ServeHTTP implements http.Handler and calls through to gin.Engine
 // with the addition of setting up service specific things ...
 func (srv *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -79,9 +100,7 @@ func (srv *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	req = req.WithContext(ctx)
 
 	// run all pre-handlers
-	for _, fn := range srv.preHandler {
-		req = fn(req)
-	}
+	req = srv.runPreHandler(req)
 
 	srv.Engine.ServeHTTP(w, req)
 }

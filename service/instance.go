@@ -1,18 +1,33 @@
 package service
 
 import (
+	"context"
 	"fmt"
+	"net/http"
 
 	"github.com/ory/graceful"
 	"github.com/ppacher/system-conf/conf"
 	"github.com/tierklinik-dobersberg/service/server"
+	"github.com/tierklinik-dobersberg/service/svcenv"
 )
+
+type contextKey string
+
+const instanceContextKey = contextKey("service:instance")
 
 type Instance struct {
 	Config
+	svcenv.ServiceEnv
 
 	cfgFile *conf.File
 	srv     *server.Server
+}
+
+// FromContext returns the service instance associated
+// with ctx.
+func FromContext(ctx context.Context) *Instance {
+	inst, _ := ctx.Value(instanceContextKey).(*Instance)
+	return inst
 }
 
 // Server returns the built-in HTTP server of the service
@@ -44,4 +59,12 @@ func (inst *Instance) Serve() error {
 	}
 
 	return nil
+}
+
+func (inst *Instance) serverOption() server.Option {
+	return server.WithPreHandler(func(r *http.Request) *http.Request {
+		newCtx := context.WithValue(r.Context(), instanceContextKey, inst)
+
+		return r.Clone(newCtx)
+	})
 }
