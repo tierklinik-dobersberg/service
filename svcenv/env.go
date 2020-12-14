@@ -51,9 +51,9 @@ func loadEnv() {
 	wd = filepath.Clean(wd)
 
 	e := ServiceEnv{
-		ConfigurationDirectory: filepath.Join(wd, "userhub", "config"),
-		StateDirectory:         filepath.Join(wd, "userhub", "state"),
-		RuntimeDirectory:       filepath.Join(os.TempDir(), "userhub"),
+		ConfigurationDirectory: filepath.Join(wd, "config"),
+		StateDirectory:         filepath.Join(wd, "state"),
+		RuntimeDirectory:       filepath.Join(os.TempDir()),
 	}
 
 	// Get configuration from environment variables managed by systemd
