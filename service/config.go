@@ -39,6 +39,10 @@ type Config struct {
 	// If set, calls to Server() will return nil!
 	DisableServer bool
 
+	// DisableCORS disables automatic support for CORS
+	// configuration using the global configuration file.
+	DisableCORS bool
+
 	// ServerOptions may hold additional options for the
 	// built-in HTTP server. ServerOptions is ignored when
 	// DisableServer is set.

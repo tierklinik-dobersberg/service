@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/gin-contrib/cors"
 	"github.com/ppacher/system-conf/conf"
 	"github.com/tierklinik-dobersberg/logger"
 	"github.com/tierklinik-dobersberg/service/server"
@@ -65,7 +66,15 @@ func prepareHTTPServer(cfg *Config, inst *Instance) (*server.Server, error) {
 	// file.
 	var file struct {
 		Listeners []server.Listener `section:"Listener"`
+		CORS      *server.CORS      `section:"CORS"`
 	}
+
+	// Prepare default values for cors
+	if !cfg.DisableCORS {
+		c := cors.DefaultConfig()
+		file.CORS = (*server.CORS)(&c)
+	}
+
 	spec := getFileSpec(cfg)
 	if err := spec.Decode(inst.cfgFile, &file); err != nil {
 		return nil, fmt.Errorf("failed to parse listeners: %w", err)
@@ -92,19 +101,22 @@ func prepareHTTPServer(cfg *Config, inst *Instance) (*server.Server, error) {
 		}
 	}
 
+	options := []server.Option{
+		server.WithListener(file.Listeners...),
+		server.WithLogger(logger.DefaultLogger()),
+		inst.serverOption(),
+	}
+	options = append(options, cfg.ServerOptions...)
+
 	// prepare the actual HTTP server ...
-	srv, err := server.New(cfg.AccessLogPath,
-		append(
-			[]server.Option{
-				server.WithListener(file.Listeners...),
-				server.WithLogger(logger.DefaultLogger()),
-				inst.serverOption(),
-			},
-			cfg.ServerOptions...,
-		)...,
-	)
+	srv, err := server.New(cfg.AccessLogPath, options...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare built-in HTTP server: %w", err)
+	}
+
+	// Enable the CORS middleware
+	if !cfg.DisableCORS {
+		srv.Use(server.EnableCORS(*file.CORS))
 	}
 
 	// any create any routes by using the RouteSetupFunc if it
@@ -179,6 +191,10 @@ func getFileSpec(cfg *Config) conf.FileSpec {
 
 	if !cfg.DisableServer {
 		fs["Listener"] = server.ListenerSpec
+
+		if !cfg.DisableCORS {
+			fs["CORS"] = server.CORSSpec
+		}
 	}
 
 	return fs
