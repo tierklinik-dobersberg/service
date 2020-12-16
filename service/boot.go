@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/gin-contrib/cors"
 	"github.com/ppacher/system-conf/conf"
 	"github.com/tierklinik-dobersberg/logger"
 	"github.com/tierklinik-dobersberg/service/server"
@@ -71,7 +70,13 @@ func prepareHTTPServer(cfg *Config, inst *Instance) (*server.Server, error) {
 
 	// Prepare default values for cors
 	if !cfg.DisableCORS {
-		c := cors.DefaultConfig()
+		c := server.CORS{
+			AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"},
+			AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type"},
+			AllowCredentials: false,
+			MaxAge:           "12h",
+		}
+
 		file.CORS = (*server.CORS)(&c)
 	}
 

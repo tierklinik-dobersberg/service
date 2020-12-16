@@ -1,19 +1,59 @@
 package server
 
 import (
+	"context"
+	"time"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/ppacher/system-conf/conf"
+	"github.com/tierklinik-dobersberg/logger"
 )
 
 // CORS is a type-alias to cors.Config to avoid additional
 // imports in client packages.
-type CORS cors.Config
+type CORS struct {
+	AllowAllOrigins        bool
+	AllowOrigins           []string
+	AllowMethods           []string
+	AllowHeaders           []string
+	AllowCredentials       bool
+	ExposeHeaders          []string
+	MaxAge                 string
+	AllowWildcard          bool
+	AllowBrowserExtensions bool
+	AllowWebSockets        bool
+}
+
+// Convert returns a cors.Config from c.
+func (c *CORS) Convert() (cors.Config, error) {
+	t, err := time.ParseDuration(c.MaxAge)
+	if err != nil {
+		return cors.Config{}, err
+	}
+	return cors.Config{
+		AllowAllOrigins:        c.AllowAllOrigins,
+		AllowOrigins:           c.AllowOrigins,
+		AllowMethods:           c.AllowMethods,
+		AllowHeaders:           c.AllowHeaders,
+		AllowCredentials:       c.AllowCredentials,
+		ExposeHeaders:          c.ExposeHeaders,
+		AllowWildcard:          c.AllowWildcard,
+		AllowBrowserExtensions: c.AllowBrowserExtensions,
+		AllowWebSockets:        c.AllowWebSockets,
+		MaxAge:                 t,
+	}, nil
+}
 
 // EnableCORS returns a gin.HandlerFunc that configures
 // Cross-Origin-Resource-Sharing.
 func EnableCORS(cfg CORS) gin.HandlerFunc {
-	return cors.New((cors.Config)(cfg))
+	c, err := cfg.Convert()
+	if err != nil {
+		logger.Fatalf(context.Background(), "[CORS] %s", err.Error())
+	}
+
+	return cors.New(c)
 }
 
 // CORSSpec defines the specification for parsing into CORS.

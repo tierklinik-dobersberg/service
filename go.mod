@@ -13,3 +13,5 @@ require (
 )
 
 replace github.com/ppacher/system-conf => ../system-conf
+
+replace github.com/tierklinik-dobersberg/logger => ../logger
