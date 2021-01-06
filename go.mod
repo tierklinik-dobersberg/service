@@ -3,6 +3,7 @@ module github.com/tierklinik-dobersberg/service
 go 1.15
 
 require (
+	github.com/apex/log v1.9.0
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-gonic/gin v1.6.3
 	github.com/go-playground/validator/v10 v10.4.1 // indirect
@@ -21,4 +22,5 @@ require (
 	golang.org/x/sys v0.0.0-20201218084310-7d0127a74742 // indirect
 	google.golang.org/protobuf v1.25.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
+	gotest.tools v2.2.0+incompatible
 )

@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/tierklinik-dobersberg/logger"
+	"github.com/tierklinik-dobersberg/service/utils"
 )
 
 // New returns a gin handler function that logs all incoming
@@ -33,7 +34,8 @@ func New(log logger.Logger) gin.HandlerFunc {
 			"http:status":      c.Writer.Status(),
 			"http:method":      c.Request.Method,
 			"http:path":        path,
-			"http:ip":          c.ClientIP(),
+			"http:remote-addr": c.Request.RemoteAddr,
+			"http:real-ip":     utils.RealClientIP(c.Request),
 			"http:latency":     latency.String(),
 			"http:latency-raw": latency,
 			"http:user-agent":  c.Request.UserAgent(),

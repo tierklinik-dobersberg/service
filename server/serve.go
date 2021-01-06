@@ -44,8 +44,26 @@ func (srv *Server) Run() error {
 
 	srv.servers = make([]*http.Server, len(srv.listenCfgs))
 	for idx, cfg := range srv.listenCfgs {
+		listener := cfg
+
+		// wrap the server in simple HTTP handler that adds the listener
+		// to the request context.
+		var fn http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
+			r = r.WithContext(context.WithValue(
+				r.Context(),
+				ListenerKey,
+				&listener,
+			))
+
+			// extract trusted proxy headers like X-Forwarded-For, X-Real-IP,
+			// X-Forwarded-Proto, ...
+			r = WithTrustedProxyHeaders(listener.TrustedProxies, r)
+
+			srv.ServeHTTP(w, r)
+		}
+
 		s := graceful.WithDefaults(&http.Server{
-			Handler: srv,
+			Handler: fn,
 			Addr:    cfg.Address,
 		})
 

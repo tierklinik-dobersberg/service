@@ -6,9 +6,10 @@ import (
 
 // Listener defines a listener for the API server.
 type Listener struct {
-	Address     string
-	TLSCertFile string
-	TLSKeyFile  string
+	Address        string
+	TLSCertFile    string
+	TLSKeyFile     string
+	TrustedProxies []string
 }
 
 // ListenerSpec defines the available configuration values for the
@@ -29,5 +30,10 @@ var ListenerSpec = []conf.OptionSpec{
 		Name:        "PrivateKeyFile",
 		Description: "Path to the TLS private key file (PEM format)",
 		Type:        conf.StringType,
+	},
+	{
+		Name:        "TrustedProxies",
+		Description: "IP addresses or CIDR subnet notation for trusted reverse proxies.",
+		Type:        conf.StringSliceType,
 	},
 }
