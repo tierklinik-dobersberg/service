@@ -19,6 +19,6 @@ func Test_removePort(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		assert.Equal(t, c.O, removePort(c.I))
+		assert.Equal(t, c.O, RemovePort(c.I))
 	}
 }

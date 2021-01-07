@@ -14,7 +14,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.1 // indirect
 	github.com/ory/graceful v0.1.1
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/ppacher/system-conf v0.4.0
+	github.com/ppacher/system-conf v0.6.0
 	github.com/tierklinik-dobersberg/logger v0.2.0
 	github.com/ugorji/go v1.2.2 // indirect
 	golang.org/x/crypto v0.0.0-20201217014255-9d1352758620 // indirect

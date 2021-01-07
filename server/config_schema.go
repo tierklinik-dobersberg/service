@@ -14,7 +14,7 @@ type Listener struct {
 
 // ListenerSpec defines the available configuration values for the
 // listener configuration sections.
-var ListenerSpec = []conf.OptionSpec{
+var ListenerSpec = conf.SectionSpec{
 	{
 		Name:        "Address",
 		Required:    true,

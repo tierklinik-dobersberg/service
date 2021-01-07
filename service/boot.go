@@ -97,7 +97,7 @@ func prepareHTTPServer(cfg *Config, inst *Instance) (*server.Server, error) {
 
 	// If there's an AccessLogPath option in the file spec
 	// allow it to overwrite the default access-log:
-	if glob, ok := cfg.ConfigFileSpec.FindSection("Global"); ok && glob.HasOption("AccessLogPath") {
+	if glob, ok := cfg.ConfigFileSpec.OptionsForSection("Global"); ok && glob.HasOption("AccessLogPath") {
 		if globSection := inst.cfgFile.Get("Global"); globSection != nil {
 			opt, _ := globSection.GetString("AccessLogPath")
 			if opt != "" {
