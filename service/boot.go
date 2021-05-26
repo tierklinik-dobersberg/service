@@ -35,7 +35,7 @@ func Boot(cfg Config) (*Instance, error) {
 	// If there's a receiver target for the configuration
 	// directly decode it there.
 	if cfg.ConfigTarget != nil {
-		if err := cfg.ConfigFileSpec.Decode(cfgFile, cfg.ConfigTarget); err != nil {
+		if err := conf.DecodeFile(cfgFile, cfg.ConfigTarget, cfg.ConfigFileSpec); err != nil {
 			return nil, fmt.Errorf("failed to decode config: %w", err)
 		}
 	}
@@ -80,8 +80,7 @@ func prepareHTTPServer(cfg *Config, inst *Instance) (*server.Server, error) {
 		file.CORS = (*server.CORS)(&c)
 	}
 
-	spec := getFileSpec(cfg)
-	if err := spec.Decode(inst.cfgFile, &file); err != nil {
+	if err := conf.DecodeFile(inst.cfgFile, &file, cfg); err != nil {
 		return nil, fmt.Errorf("failed to parse listeners: %w", err)
 	}
 
@@ -148,7 +147,7 @@ func loadConfigFile(env svcenv.ServiceEnv, cfg *Config) (*conf.File, error) {
 			return nil, err
 		}
 	}
-	fpath := filepath.Join(env.ConfigurationDirectory, cfg.ConfigFileName)
+	fpath := filepath.Join(dir, cfg.ConfigFileName)
 
 	// if cfg.ConfigFileName does not include an extension
 	// we default to .conf.
@@ -173,34 +172,11 @@ func loadConfigFile(env svcenv.ServiceEnv, cfg *Config) (*conf.File, error) {
 		return nil, fmt.Errorf("failed to parse: %w", err)
 	}
 
-	// get the complete configuration file spec.
-	// Depending on (config).DisableServer, this may also
-	// include options for the built-in HTTP server.
-	spec := getFileSpec(cfg)
-
 	// Validate the configuration file, set defaults and ensure
 	// everything is ready to be parsed.
-	if err := conf.ValidateFile(confFile, spec); err != nil {
+	if err := conf.ValidateFile(confFile, cfg); err != nil {
 		return nil, fmt.Errorf("invalid config file: %w", err)
 	}
 
 	return confFile, nil
-}
-
-func getFileSpec(cfg *Config) conf.FileSpec {
-	fs := make(conf.FileSpec)
-
-	for k, v := range cfg.ConfigFileSpec {
-		fs[k] = v
-	}
-
-	if !cfg.DisableServer {
-		fs["Listener"] = server.ListenerSpec
-
-		if !cfg.DisableCORS {
-			fs["CORS"] = server.CORSSpec
-		}
-	}
-
-	return fs
 }

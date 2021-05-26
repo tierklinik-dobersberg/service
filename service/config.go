@@ -1,6 +1,8 @@
 package service
 
 import (
+	"strings"
+
 	"github.com/gin-gonic/gin"
 	"github.com/ppacher/system-conf/conf"
 	"github.com/tierklinik-dobersberg/logger"
@@ -29,7 +31,7 @@ type Config struct {
 	// If no [Listener] section is defined and the built-in
 	// HTTP server is enabled a default listener for
 	// 127.0.0.1:3000 is created.
-	ConfigFileSpec conf.FileSpec
+	ConfigFileSpec conf.SectionRegistry
 
 	// ConfigTarget may holds the struct that should be
 	// used to unmarshal the configuration file into.
@@ -56,4 +58,21 @@ type Config struct {
 
 	// LogAdapter configures the standard log adapter to use.
 	LogAdapter logger.Adapter
+}
+
+func (cfg *Config) OptionsForSection(secName string) (conf.OptionRegistry, bool) {
+	lowerName := strings.ToLower(secName)
+	if !cfg.DisableServer {
+		if lowerName == "listener" {
+			return server.ListenerSpec, true
+		}
+
+		if !cfg.DisableCORS {
+			return server.CORSSpec, true
+		}
+	}
+	if cfg.ConfigFileSpec != nil {
+		return cfg.ConfigFileSpec.OptionsForSection(secName)
+	}
+	return nil, false
 }
