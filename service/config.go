@@ -67,7 +67,7 @@ func (cfg *Config) OptionsForSection(secName string) (conf.OptionRegistry, bool)
 			return server.ListenerSpec, true
 		}
 
-		if !cfg.DisableCORS {
+		if !cfg.DisableCORS && lowerName == "cors" {
 			return server.CORSSpec, true
 		}
 	}
