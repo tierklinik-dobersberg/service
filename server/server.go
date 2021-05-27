@@ -31,7 +31,10 @@ type Server struct {
 // New creates a new server instance.
 func New(accessLogPath string, opts ...Option) (*Server, error) {
 	srv := new(Server)
-	srv.Engine = gin.Default() // TODO
+	srv.Engine = gin.New()
+	srv.Engine.Use(
+		gin.Recovery(),
+	)
 
 	for _, opt := range opts {
 		if err := opt(srv); err != nil {

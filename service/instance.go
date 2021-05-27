@@ -7,6 +7,7 @@ import (
 
 	"github.com/ory/graceful"
 	"github.com/ppacher/system-conf/conf"
+	"github.com/tierklinik-dobersberg/logger"
 	"github.com/tierklinik-dobersberg/service/server"
 	"github.com/tierklinik-dobersberg/service/svcenv"
 )
@@ -19,8 +20,9 @@ type Instance struct {
 	Config
 	svcenv.ServiceEnv
 
-	cfgFile *conf.File
-	srv     *server.Server
+	cfgFile    *conf.File
+	srv        *server.Server
+	logAdapter *logAdapter
 }
 
 // FromContext returns the service instance associated
@@ -42,6 +44,12 @@ func (inst *Instance) Server() *server.Server {
 // of the service configuration file.
 func (inst *Instance) ConfigFile() *conf.File {
 	return inst.cfgFile
+}
+
+// AddLogger adds adapter to the list of logging adapters
+// used by inst.
+func (inst *Instance) AddLogger(adapter logger.Adapter) {
+	inst.logAdapter.addAdapter(adapter)
 }
 
 // Serve starts serving the internal, built-in HTTP server.

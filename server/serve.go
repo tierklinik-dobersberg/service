@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 
 	"github.com/ory/graceful"
@@ -49,22 +50,20 @@ func (srv *Server) Run() error {
 		// wrap the server in simple HTTP handler that adds the listener
 		// to the request context.
 		var fn http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
-			r = r.WithContext(context.WithValue(
-				r.Context(),
-				ListenerKey,
-				&listener,
-			))
-
 			// extract trusted proxy headers like X-Forwarded-For, X-Real-IP,
 			// X-Forwarded-Proto, ...
 			r = WithTrustedProxyHeaders(listener.TrustedProxies, r)
 
+			// actually call the servers handler
 			srv.ServeHTTP(w, r)
 		}
 
 		s := graceful.WithDefaults(&http.Server{
 			Handler: fn,
 			Addr:    cfg.Address,
+			ConnContext: func(ctx context.Context, c net.Conn) context.Context {
+				return context.WithValue(ctx, ListenerKey, &listener)
+			},
 		})
 
 		srv.servers[idx] = s

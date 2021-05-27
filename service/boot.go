@@ -1,7 +1,9 @@
 package service
 
 import (
+	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -15,19 +17,14 @@ import (
 // instance.
 func Boot(cfg Config) (*Instance, error) {
 	// setup logging
-	// TODO(ppacher): use a logger.MultiAdapter as
-	// a wrapper to easy extending of the logging
-	// behavior.
-	if cfg.LogAdapter == nil {
-		cfg.LogAdapter = new(logger.StdlibAdapter)
-	}
-	logger.SetDefaultAdapter(cfg.LogAdapter)
+	log := new(logAdapter)
+	logger.SetDefaultAdapter(log)
 
 	// load the service environment
 	env := svcenv.Env()
 
 	// load the configuration file
-	cfgFile, err := loadConfigFile(env, &cfg)
+	cfgFile, err := loadConfig(env, &cfg)
 	if err != nil {
 		return nil, fmt.Errorf("configuration: %w", err)
 	}
@@ -35,7 +32,10 @@ func Boot(cfg Config) (*Instance, error) {
 	// If there's a receiver target for the configuration
 	// directly decode it there.
 	if cfg.ConfigTarget != nil {
-		if err := conf.DecodeFile(cfgFile, cfg.ConfigTarget, cfg.ConfigFileSpec); err != nil {
+		// we use ConfigSchema directly instead of cfg so we don't try do
+		// decode CORS or Listener sections.
+		// TODO(ppacher): consider changing this behavior.
+		if err := conf.DecodeFile(cfgFile, cfg.ConfigTarget, cfg.ConfigSchema); err != nil {
 			return nil, fmt.Errorf("failed to decode config: %w", err)
 		}
 	}
@@ -44,6 +44,7 @@ func Boot(cfg Config) (*Instance, error) {
 		Config:     cfg,
 		ServiceEnv: env,
 		cfgFile:    cfgFile,
+		logAdapter: log,
 	}
 
 	// prepare the built-in HTTP server
@@ -96,7 +97,7 @@ func prepareHTTPServer(cfg *Config, inst *Instance) (*server.Server, error) {
 
 	// If there's an AccessLogPath option in the file spec
 	// allow it to overwrite the default access-log:
-	if glob, ok := cfg.ConfigFileSpec.OptionsForSection("Global"); ok && glob.HasOption("AccessLogPath") {
+	if glob, ok := cfg.ConfigSchema.OptionsForSection("Global"); ok && glob.HasOption("AccessLogPath") {
 		if globSection := inst.cfgFile.Get("Global"); globSection != nil {
 			opt, _ := globSection.GetString("AccessLogPath")
 			if opt != "" {
@@ -123,7 +124,7 @@ func prepareHTTPServer(cfg *Config, inst *Instance) (*server.Server, error) {
 		srv.Use(server.EnableCORS(*file.CORS))
 	}
 
-	// any create any routes by using the RouteSetupFunc if it
+	// create any routes by using the RouteSetupFunc if it
 	// was provided by the user.
 	if cfg.RouteSetupFunc != nil {
 		if err := cfg.RouteSetupFunc(srv); err != nil {
@@ -134,7 +135,7 @@ func prepareHTTPServer(cfg *Config, inst *Instance) (*server.Server, error) {
 	return srv, nil
 }
 
-func loadConfigFile(env svcenv.ServiceEnv, cfg *Config) (*conf.File, error) {
+func loadConfig(env svcenv.ServiceEnv, cfg *Config) (*conf.File, error) {
 	// The configuration file is either located in env.ConfigurationDirectory
 	// or in the current working-directory of the service.
 	// TODO(ppacher): add support to disable the WD fallback.
@@ -147,27 +148,48 @@ func loadConfigFile(env svcenv.ServiceEnv, cfg *Config) (*conf.File, error) {
 			return nil, err
 		}
 	}
+
+	// a list of io.Readers for each configuration file.
+	var configurations []io.Reader
+
 	fpath := filepath.Join(dir, cfg.ConfigFileName)
-
-	// if cfg.ConfigFileName does not include an extension
-	// we default to .conf.
-	// TODO(ppacher): should we make this behavior configurable?
-	if filepath.Ext(fpath) == "" {
-		fpath = fpath + ".conf"
+	if cfg.ConfigFileName != "" {
+		// if cfg.ConfigFileName does not include an extension
+		// we default to .conf.
+		if filepath.Ext(fpath) == "" {
+			fpath = fpath + ".conf"
+		}
+		mainFile, err := os.Open(fpath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open: %w", err)
+		}
+		defer mainFile.Close()
+		configurations = append(configurations, mainFile)
 	}
 
-	// open the configuration file
-	file, err := os.Open(fpath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open: %w", err)
+	// open all .conf files in the configuration-directory.
+	if confd := cfg.ConfigDirectory; confd != "" {
+		// TODO(ppacher): should we check if that directory actually
+		// exists?
+		if !filepath.IsAbs(dir) {
+			confd = filepath.Join(dir, confd)
+		}
+		matches, _ := filepath.Glob(filepath.Join(confd, "*.conf"))
+		for _, file := range matches {
+			f, err := os.Open(file)
+			if err != nil {
+				logger.Errorf(context.TODO(), "failed to open %s: %s, skipping", file, err)
+				continue
+			}
+			defer f.Close()
+			configurations = append(configurations, f)
+		}
 	}
-	defer file.Close()
 
-	// finally deserialize it and convert it into a
-	// conf.File. Actual decoding of confFile into
-	// a struct type happens later using
-	// (conf.FileSpec).Decode.
-	confFile, err := conf.Deserialize(fpath, file)
+	// finally deserialize all configuration files and convert it into a
+	// conf.File. Actual decoding of confFile into a struct type happens
+	// later.
+	confFile, err := conf.Deserialize(fpath, io.MultiReader(configurations...))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse: %w", err)
 	}

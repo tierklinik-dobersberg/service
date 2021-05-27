@@ -165,7 +165,7 @@ func (ph *proxyHeaders) parseForwarded(h http.Header) *proxyHeaders {
 	return ph
 }
 
-// RemovePort tries to strip any :<port> prefix from str.
+// RemovePort tries to strip any :<port> suffix from str.
 // It does not validate the rest of str in any other way.
 func RemovePort(str string) string {
 	for idx := len(str) - 1; idx >= 0; idx-- {

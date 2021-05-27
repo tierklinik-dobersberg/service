@@ -5,7 +5,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/ppacher/system-conf/conf"
-	"github.com/tierklinik-dobersberg/logger"
 	"github.com/tierklinik-dobersberg/service/server"
 )
 
@@ -14,7 +13,7 @@ import (
 type Config struct {
 	// AccessLogPath is the path to the access log of the
 	// built-in HTTP server. If defined as "AccessLogPath"
-	// by ConfigFileSpec, the access log may be overwritten
+	// by ConfigSchema, the access log may be overwritten
 	// by the configuration file automatically.
 	AccessLogPath string
 
@@ -23,15 +22,19 @@ type Config struct {
 	// to .conf.
 	ConfigFileName string
 
-	// ConfigFileSpec describes the allowed sections and
+	// ConfigDirectory is the name of the directory that may contain
+	// separate configuration files.
+	ConfigDirectory string
+
+	// ConfigSchema describes the allowed sections and
 	// values of the configuration file. Note that if
-	// DisableServer is not set the file spec is extended
+	// DisableServer is not set the schema is extended
 	// to include Listener sections for the built-in HTTP(s)
 	// server.
 	// If no [Listener] section is defined and the built-in
 	// HTTP server is enabled a default listener for
 	// 127.0.0.1:3000 is created.
-	ConfigFileSpec conf.SectionRegistry
+	ConfigSchema conf.SectionRegistry
 
 	// ConfigTarget may holds the struct that should be
 	// used to unmarshal the configuration file into.
@@ -55,9 +58,6 @@ type Config struct {
 	// to configure routes after Boot() by adding them
 	// to the Instance.Server() directly.
 	RouteSetupFunc func(grp gin.IRouter) error
-
-	// LogAdapter configures the standard log adapter to use.
-	LogAdapter logger.Adapter
 }
 
 func (cfg *Config) OptionsForSection(secName string) (conf.OptionRegistry, bool) {
@@ -71,8 +71,8 @@ func (cfg *Config) OptionsForSection(secName string) (conf.OptionRegistry, bool)
 			return server.CORSSpec, true
 		}
 	}
-	if cfg.ConfigFileSpec != nil {
-		return cfg.ConfigFileSpec.OptionsForSection(secName)
+	if cfg.ConfigSchema != nil {
+		return cfg.ConfigSchema.OptionsForSection(secName)
 	}
 	return nil, false
 }

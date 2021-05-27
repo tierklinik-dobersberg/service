@@ -25,8 +25,7 @@ type CORS struct {
 	AllowWebSockets        bool
 }
 
-// Convert returns a cors.Config from c.
-func (c *CORS) Convert() (cors.Config, error) {
+func convertToGin(c *CORS) (cors.Config, error) {
 	t, err := time.ParseDuration(c.MaxAge)
 	if err != nil {
 		return cors.Config{}, err
@@ -48,7 +47,7 @@ func (c *CORS) Convert() (cors.Config, error) {
 // EnableCORS returns a gin.HandlerFunc that configures
 // Cross-Origin-Resource-Sharing.
 func EnableCORS(cfg CORS) gin.HandlerFunc {
-	c, err := cfg.Convert()
+	c, err := convertToGin(&cfg)
 	if err != nil {
 		logger.Fatalf(context.Background(), "[CORS] %s", err.Error())
 	}
