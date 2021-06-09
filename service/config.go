@@ -26,6 +26,10 @@ type Config struct {
 	// separate configuration files.
 	ConfigDirectory string
 
+	// UseStdlibLogAdapter can be set to true to immediately add a new
+	// logger.StandardAdapter to the service logger.
+	UseStdlibLogAdapter bool
+
 	// ConfigSchema describes the allowed sections and
 	// values of the configuration file. Note that if
 	// DisableServer is not set the schema is extended

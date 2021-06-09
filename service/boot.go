@@ -21,6 +21,10 @@ func Boot(cfg Config) (*Instance, error) {
 	log := new(logAdapter)
 	logger.SetDefaultAdapter(log)
 
+	if cfg.UseStdlibLogAdapter {
+		log.addAdapter(new(logger.StdlibAdapter))
+	}
+
 	// load the service environment
 	env := svcenv.Env()
 
