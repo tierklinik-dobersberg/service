@@ -193,7 +193,7 @@ func loadConfig(env svcenv.ServiceEnv, cfg *Config) (*conf.File, error) {
 	if confd := cfg.ConfigDirectory; confd != "" {
 		// TODO(ppacher): should we check if that directory actually
 		// exists?
-		if !filepath.IsAbs(dir) {
+		if !filepath.IsAbs(confd) {
 			confd = filepath.Join(dir, confd)
 		}
 		log.V(5).Logf("searching for additional .conf files in: %s", confd)
