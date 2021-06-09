@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"github.com/ppacher/system-conf/conf"
 	"github.com/tierklinik-dobersberg/logger"
@@ -174,8 +175,16 @@ func loadConfig(env svcenv.ServiceEnv, cfg *Config) (*conf.File, error) {
 		if !filepath.IsAbs(dir) {
 			confd = filepath.Join(dir, confd)
 		}
-		matches, _ := filepath.Glob(filepath.Join(confd, "*.conf"))
+		matches, err := filepath.Glob(filepath.Join(confd, "*.conf"))
+		if err != nil {
+			// err can only be filepath.ErrBadPattern which we should never
+			// see here. so time to panic
+			panic(err)
+		}
+
+		sort.Strings(matches)
 		for _, file := range matches {
+			logger.From(context.TODO()).V(5).Logf("loading configuration file: %s", file)
 			f, err := os.Open(file)
 			if err != nil {
 				logger.Errorf(context.TODO(), "failed to open %s: %s, skipping", file, err)
