@@ -31,6 +31,8 @@ type (
 func NewConfigSchemaBuilder(funcs ...func(s *ConfigSchema) error) ConfigSchemaBuilder {
 	var csb ConfigSchemaBuilder
 
+	csb.Register(funcs...)
+
 	return csb
 }
 
@@ -41,9 +43,9 @@ func (csb *ConfigSchemaBuilder) Register(funcs ...func(*ConfigSchema) error) {
 	}
 }
 
-// AddToScheme applies all functions from csb to scheme. It aborts if non-nil
+// AddToSchema applies all functions from csb to scheme. It aborts if non-nil
 // error is returned.
-func (csb *ConfigSchemaBuilder) AddToScheme(scheme *ConfigSchema) error {
+func (csb *ConfigSchemaBuilder) AddToSchema(scheme *ConfigSchema) error {
 	for _, f := range *csb {
 		if err := f(scheme); err != nil {
 			return err
