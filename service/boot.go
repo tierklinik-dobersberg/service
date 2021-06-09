@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/ppacher/system-conf/conf"
 	"github.com/tierklinik-dobersberg/logger"
@@ -140,6 +141,14 @@ func prepareHTTPServer(cfg *Config, inst *Instance) (*server.Server, error) {
 	return srv, nil
 }
 
+// newLineReader returns an io.Reader that just emits a new line.
+// This is required as not all .conf files in the ConfigurationDirectory
+// may end in a new line and we need to avoid merging lines from different
+// files.
+func newLineReader() io.Reader {
+	return strings.NewReader("\n")
+}
+
 func loadConfig(env svcenv.ServiceEnv, cfg *Config) (*conf.File, error) {
 	// The configuration file is either located in env.ConfigurationDirectory
 	// or in the current working-directory of the service.
@@ -156,7 +165,6 @@ func loadConfig(env svcenv.ServiceEnv, cfg *Config) (*conf.File, error) {
 
 	// a list of io.Readers for each configuration file.
 	var configurations []io.Reader
-
 	fpath := filepath.Join(dir, cfg.ConfigFileName)
 	if cfg.ConfigFileName != "" {
 		// if cfg.ConfigFileName does not include an extension
@@ -164,12 +172,18 @@ func loadConfig(env svcenv.ServiceEnv, cfg *Config) (*conf.File, error) {
 		if filepath.Ext(fpath) == "" {
 			fpath = fpath + ".conf"
 		}
+		// TODO(ppacher): should the existance of the main configuration
+		// file be optional?
 		mainFile, err := os.Open(fpath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to open: %w", err)
 		}
 		defer mainFile.Close()
-		configurations = append(configurations, mainFile)
+		configurations = append(
+			configurations,
+			mainFile,
+			newLineReader(),
+		)
 	}
 
 	// open all .conf files in the configuration-directory.
@@ -188,14 +202,18 @@ func loadConfig(env svcenv.ServiceEnv, cfg *Config) (*conf.File, error) {
 
 		sort.Strings(matches)
 		for _, file := range matches {
-			logger.From(context.TODO()).V(5).Logf("loading configuration file: %s", file)
+			logger.From(context.TODO()).V(5).Logf("found configuration file: %s", file)
 			f, err := os.Open(file)
 			if err != nil {
 				logger.Errorf(context.TODO(), "failed to open %s: %s, skipping", file, err)
 				continue
 			}
 			defer f.Close()
-			configurations = append(configurations, f)
+			configurations = append(
+				configurations,
+				f,
+				newLineReader(),
+			)
 		}
 	}
 
