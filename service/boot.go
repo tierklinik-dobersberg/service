@@ -153,6 +153,7 @@ func loadConfig(env svcenv.ServiceEnv, cfg *Config) (*conf.File, error) {
 	// The configuration file is either located in env.ConfigurationDirectory
 	// or in the current working-directory of the service.
 	// TODO(ppacher): add support to disable the WD fallback.
+	log := logger.From(context.TODO())
 
 	dir := env.ConfigurationDirectory
 	if dir == "" {
@@ -162,6 +163,7 @@ func loadConfig(env svcenv.ServiceEnv, cfg *Config) (*conf.File, error) {
 			return nil, err
 		}
 	}
+	log.V(5).Logf("configuration directory: %s", dir)
 
 	// a list of io.Readers for each configuration file.
 	var configurations []io.Reader
@@ -174,6 +176,7 @@ func loadConfig(env svcenv.ServiceEnv, cfg *Config) (*conf.File, error) {
 		}
 		// TODO(ppacher): should the existance of the main configuration
 		// file be optional?
+		log.V(5).Logf("trying to load main config file from: %s", fpath)
 		mainFile, err := os.Open(fpath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to open: %w", err)
@@ -193,6 +196,7 @@ func loadConfig(env svcenv.ServiceEnv, cfg *Config) (*conf.File, error) {
 		if !filepath.IsAbs(dir) {
 			confd = filepath.Join(dir, confd)
 		}
+		log.V(5).Logf("searching for additional .conf files in: %s", confd)
 		matches, err := filepath.Glob(filepath.Join(confd, "*.conf"))
 		if err != nil {
 			// err can only be filepath.ErrBadPattern which we should never
@@ -215,7 +219,11 @@ func loadConfig(env svcenv.ServiceEnv, cfg *Config) (*conf.File, error) {
 				newLineReader(),
 			)
 		}
+	} else {
+		log.V(5).Logf("no conf.d directory configured, not scanning for additional files ...")
 	}
+
+	log.V(5).Logf("loading service configuration from %d sources", int(len(configurations)/2))
 
 	// finally deserialize all configuration files and convert it into a
 	// conf.File. Actual decoding of confFile into a struct type happens
