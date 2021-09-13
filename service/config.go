@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/ppacher/system-conf/conf"
+	"github.com/tierklinik-dobersberg/logger"
 	"github.com/tierklinik-dobersberg/service/server"
 )
 
@@ -29,6 +30,10 @@ type Config struct {
 	// UseStdlibLogAdapter can be set to true to immediately add a new
 	// logger.StandardAdapter to the service logger.
 	UseStdlibLogAdapter bool
+
+	// LogLevel can be set to the default log level. This can later be
+	// overwritten by using instance.SetLogLevel().
+	LogLevel logger.Severity
 
 	// ConfigSchema describes the allowed sections and
 	// values of the configuration file. Note that if

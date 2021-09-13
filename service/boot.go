@@ -20,11 +20,12 @@ import (
 func Boot(cfg Config) (*Instance, error) {
 	// setup logging
 	log := new(logAdapter)
-	logger.SetDefaultAdapter(log)
-
+	log.setMaxSeverity(cfg.LogLevel)
 	if cfg.UseStdlibLogAdapter {
 		log.addAdapter(new(logger.StdlibAdapter))
 	}
+
+	logger.SetDefaultAdapter(log)
 
 	// load the service environment
 	env := svcenv.Env()

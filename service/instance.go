@@ -47,9 +47,17 @@ func (inst *Instance) ConfigFile() *conf.File {
 }
 
 // AddLogger adds adapter to the list of logging adapters
-// used by inst.
+// used by inst. Note that messages with lower severity
+// than the threshold set by SetLogLevel will be discarded
+// and not passed to adapter.
 func (inst *Instance) AddLogger(adapter logger.Adapter) {
 	inst.logAdapter.addAdapter(adapter)
+}
+
+// SetLogLevel configures the maximum log level for the
+// instance logger.
+func (inst *Instance) SetLogLevel(s logger.Severity) {
+	inst.logAdapter.setMaxSeverity(s)
 }
 
 // Serve starts serving the internal, built-in HTTP server.
